@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAllSubscribers, SubscriberDoc } from '../services/firebase';
 import { listGoogleForms, createHeavenlyRunForm, GoogleFormItem } from '../services/googleForms';
+import { SignUpTrendChart } from '../components/admin/SignUpTrendChart';
 import {
   Trophy,
   ShieldCheck,
@@ -184,6 +185,9 @@ export const AdminFirst50Page: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Data Visualization: Sign-up Trend & First 50 Progress Chart */}
+        <SignUpTrendChart subscribers={subscribers} />
 
         {/* First 50 Candidates Table */}
         <div className="bg-[#0E1322] border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl">
