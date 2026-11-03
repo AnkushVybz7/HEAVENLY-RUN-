@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-midnight: #090B12;
+    --heavenly-blue: #A8D8FF;
+    --chrome-silver: #C7CDD5;
+    --electric-blue: #176BFF;
+    --cloud-white: #F5F7FC;
+    --cosmic-violet: #8060B9;
+    --devil-crimson: #B51227;
+  }
+
+  body {
+    background-color: #090B12;
+    color: #F5F7FC;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    selection-background-color: #176BFF;
+    selection-color: #ffffff;
+  }
+
+  ::selection {
+    background: rgba(23, 107, 255, 0.4);
+    color: #ffffff;
+  }
+}
+
+.font-display {
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+}
+
+.font-tech {
+  font-family: 'Space Grotesk', monospace, sans-serif;
+}
+
+.font-body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #090B12;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2433;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2d374d;
+}
+
+/* Metallic gradient text effects */
+.text-metallic {
+  background: linear-gradient(135deg, #F5F7FC 0%, #C7CDD5 40%, #A8D8FF 70%, #ffffff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-devil {
+  background: linear-gradient(135deg, #FF6B7D 0%, #B51227 50%, #5E000D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-heavenly {
+  background: linear-gradient(135deg, #FFFFFF 0%, #A8D8FF 50%, #176BFF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glow effects */
+.glow-devil {
+  box-shadow: 0 0 35px -5px rgba(181, 18, 39, 0.4);
+}
+
+.glow-heavenly {
+  box-shadow: 0 0 35px -5px rgba(23, 107, 255, 0.35);
+}
+
+.glow-cosmic {
+  box-shadow: 0 0 35px -5px rgba(128, 96, 185, 0.35);
+}
+
+/* Custom futuristic cursor visibility on desktop */
+@media (pointer: fine) and (hover: hover) {
+  html.custom-cursor-active,
+  html.custom-cursor-active * {
+    cursor: none !important;
+  }
+}

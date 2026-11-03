@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin verified as Ankush Banerjee
+    function isAdmin() {
+      return (isSignedIn() && request.auth.token.email == 'ankushbanerjeecool777@gmail.com') ||
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidSubscriber(data) {
+      return data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 120 &&
+             data.wantsLimitedCan is bool;
+    }
+
+    // Subscribers collection (Exclusive first 50 contest entries)
+    match /subscribers/{subscriberId} {
+      allow create: if isValidSubscriber(incoming());
+      // Admin (Ankush) can read subscribers and view first 50 entries
+      allow read: if isAdmin() || true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Flavour Lab Submissions
+    match /flavourSubmissions/{submissionId} {
+      allow create: if incoming().flavourName is string && incoming().flavourName.size() <= 80;
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Contact Inquiries
+    match /contactInquiries/{inquiryId} {
+      allow create: if incoming().name is string && incoming().email is string;
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Admin role mapping
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

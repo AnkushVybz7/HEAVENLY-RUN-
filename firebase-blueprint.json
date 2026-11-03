@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "User signed up for updates and limited edition can contest",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the subscriber",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the subscriber",
+          "format": "email",
+          "maxLength": 120
+        },
+        "wantsLimitedCan": {
+          "type": "boolean",
+          "description": "Whether user opted in for their name on the first 50 limited edition can release"
+        },
+        "isFirst50Candidate": {
+          "type": "boolean",
+          "description": "Whether the entry is among the initial 50 candidates"
+        },
+        "orderNumber": {
+          "type": "number",
+          "description": "Chronological entry order position"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp ISO string of subscription"
+        }
+      },
+      "required": ["name", "email", "wantsLimitedCan", "createdAt"]
+    },
+    "FlavourSubmission": {
+      "title": "FlavourSubmission",
+      "description": "Community proposal for next 300 ml can",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "flavourName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "category": {
+          "type": "string",
+          "enum": ["sweet", "sour", "sweet and sour", "spicy", "fruity", "citrus", "other"]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "suggestedColors": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "additionalIdeas": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["flavourName", "category", "description", "suggestedColors", "createdAt"]
+    },
+    "ContactInquiry": {
+      "title": "ContactInquiry",
+      "description": "General customer inquiry",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 120
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "email", "subject", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/subscribers/{subscriberId}": {
+      "schema": {
+        "$ref": "#/entities/Subscriber"
+      },
+      "description": "Subscribers list for updates and limited edition can contest"
+    },
+    "/flavourSubmissions/{submissionId}": {
+      "schema": {
+        "$ref": "#/entities/FlavourSubmission"
+      },
+      "description": "Community proposals submitted to the Flavour Lab"
+    },
+    "/contactInquiries/{inquiryId}": {
+      "schema": {
+        "$ref": "#/entities/ContactInquiry"
+      },
+      "description": "Inquiries submitted via the FAQ contact desk"
+    }
+  }
+}

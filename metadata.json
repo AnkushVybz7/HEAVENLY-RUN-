@@ -1,0 +1,6 @@
+{
+  "name": "HEAVENLY-RUN ENERGY — Rise Above Ordinary",
+  "description": "The official 3D showcase for HEAVENLY-RUN ENERGY. Explore Devil Rush, Heavenly Rush, interactive 3D can showroom, the Mystery prodigy, and Community Flavour Lab.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
