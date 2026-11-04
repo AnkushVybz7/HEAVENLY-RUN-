@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
-import { Menu, X, Sparkles, Volume2, VolumeX, LogOut, UserCheck, Shield } from 'lucide-react';
+import { Menu, X, Sparkles, Volume2, VolumeX, LogOut, UserCheck, Shield, Instagram } from 'lucide-react';
 import { audioSynth } from '../utils/audio';
 
 interface NavbarProps {
@@ -144,6 +144,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {ambientAudio ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
+
+            {/* Official Instagram Icon & Handle */}
+            <a
+              href="https://www.instagram.com/heavenly_run.energy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 hover:text-white hover:bg-pink-500/20 transition-all cursor-pointer flex items-center justify-center"
+              title="Official Instagram: @heavenly_run.energy"
+              aria-label="Official Instagram @heavenly_run.energy"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+            </a>
 
             {/* Authenticated User Status & LOG OUT BUTTON */}
             {currentUser ? (
@@ -296,6 +308,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 SIGN IN / REGISTER
               </button>
             )}
+
+            {/* Official Instagram in Mobile Menu */}
+            <a
+              href="https://www.instagram.com/heavenly_run.energy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 rounded-xl font-tech font-bold text-xs tracking-wider bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-300 border border-pink-500/30 flex items-center justify-between cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Instagram className="w-4 h-4 text-pink-400" />
+                <span>FOLLOW @heavenly_run.energy</span>
+              </div>
+              <span className="text-[10px] text-white/50 uppercase">OFFICIAL</span>
+            </a>
 
             <button
               onClick={() => handleLinkClick('/flavours')}

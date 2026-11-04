@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { MotionConfig } from 'motion/react';
+import { MotionProvider, useMotionPreference } from './context/MotionContext';
 import { PageRoute } from './types';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -17,10 +19,11 @@ import { FlavoursPage } from './pages/FlavoursPage';
 import { MysteryPage } from './pages/MysteryPage';
 import { FaqPage } from './pages/FaqPage';
 import { AdminFirst50Page } from './pages/AdminFirst50Page';
-import { testConnection, logoutUser } from './services/firebase';
+import { testConnection, logoutUser, onAuthChange } from './services/firebase';
 import { audioSynth } from './utils/audio';
 
-export default function App() {
+function AppContent() {
+  const { reducedMotion } = useMotionPreference();
   const [isLoading, setIsLoading] = useState(true);
 
   // Check if visitor has entered full name and email
@@ -47,6 +50,7 @@ export default function App() {
   useEffect(() => {
     testConnection();
     try {
+      // Check session
       const stored = localStorage.getItem('heavenly_run_user_auth');
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -60,11 +64,25 @@ export default function App() {
           return;
         }
       }
-      // If no valid session, show popup every time someone opens the page until they enter their name and email
-      setShowSubscriberModal(true);
+      // Public pages are accessible without mandatory registration
+      setShowSubscriberModal(false);
     } catch {
-      setShowSubscriberModal(true);
+      setShowSubscriberModal(false);
     }
+  }, []);
+
+  // Listen to live Firebase Auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthChange((firebaseUser) => {
+      if (firebaseUser && firebaseUser.email) {
+        const cleanEmail = firebaseUser.email.toLowerCase();
+        const cleanName = firebaseUser.displayName || cleanEmail.split('@')[0];
+        const isFounder = cleanEmail === 'ankushbanerjeecool777@gmail.com';
+        setCurrentUser({ name: cleanName, email: cleanEmail });
+        setIsAdmin(isFounder);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   // Sync with browser navigation (popstate & hashchange)
@@ -137,57 +155,68 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090B12] text-white flex flex-col selection:bg-blue-600/30 relative">
-      {/* Sleek Futuristic Custom Desktop Cursor */}
-      <CustomCursor />
+    <MotionConfig reducedMotion={reducedMotion ? 'always' : 'never'}>
+      <div className="min-h-screen bg-[#090B12] text-white flex flex-col selection:bg-blue-600/30 relative">
+        {/* Sleek Futuristic Custom Desktop Cursor */}
+        <CustomCursor />
 
-      {/* Global Dynamic Particle Background (Subtle on FAQ/Admin, Pronounced on Home & Mystery) */}
-      <InteractiveParticleField currentRoute={currentRoute} />
+        {/* Global Dynamic Particle Background (Subtle on FAQ/Admin, Pronounced on Home & Mystery) */}
+        <InteractiveParticleField currentRoute={currentRoute} />
 
-      {/* Initial Loading Screen */}
-      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
+        {/* Initial Loading Screen */}
+        {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
 
-      {/* Mandatory Sign-in for Latest Updates & First 50 Can Contest Popup */}
-      <SubscriberModal
-        isOpen={showSubscriberModal}
-        onSuccess={handleSubscriberSuccess}
-      />
+        {/* Sign-in for Latest Updates & First 50 Can Contest Popup (Non-blocking with Close option) */}
+        <SubscriberModal
+          isOpen={showSubscriberModal}
+          onSuccess={handleSubscriberSuccess}
+          onClose={() => setShowSubscriberModal(false)}
+        />
 
-      {/* Floating Navbar with prominent user status and LOG OUT button */}
-      <Navbar
-        currentRoute={currentRoute}
-        onNavigate={handleNavigate}
-        isAdmin={isAdmin}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onOpenLogin={() => setShowSubscriberModal(true)}
-      />
+        {/* Floating Navbar with prominent user status and LOG OUT button */}
+        <Navbar
+          currentRoute={currentRoute}
+          onNavigate={handleNavigate}
+          isAdmin={isAdmin}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onOpenLogin={() => setShowSubscriberModal(true)}
+        />
 
-      {/* Distinct Page Route Renderer */}
-      <main className="flex-grow">
-        {currentRoute === '/' && <HomePage onNavigate={handleNavigate} />}
-        {currentRoute === '/flavours' && <FlavoursPage />}
-        {currentRoute === '/mystery' && <MysteryPage />}
-        {currentRoute === '/faq' && <FaqPage />}
-        {currentRoute === '/admin-first-50' && <AdminFirst50Page />}
-      </main>
+        {/* Distinct Page Route Renderer */}
+        <main className="flex-grow">
+          {currentRoute === '/' && <HomePage onNavigate={handleNavigate} />}
+          {currentRoute === '/flavours' && <FlavoursPage />}
+          {currentRoute === '/mystery' && <MysteryPage />}
+          {currentRoute === '/faq' && <FaqPage />}
+          {currentRoute === '/admin-first-50' && <AdminFirst50Page />}
+        </main>
 
-      {/* Always-Visible Floating Multi-Page Switcher & 1-Click Logout Dock */}
-      <MultiPageDock
-        currentRoute={currentRoute}
-        onNavigate={handleNavigate}
-        isAdmin={isAdmin}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onOpenLogin={() => setShowSubscriberModal(true)}
-      />
+        {/* Always-Visible Floating Multi-Page Switcher & 1-Click Logout Dock */}
+        <MultiPageDock
+          currentRoute={currentRoute}
+          onNavigate={handleNavigate}
+          isAdmin={isAdmin}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onOpenLogin={() => setShowSubscriberModal(true)}
+        />
 
-      {/* Global Footer */}
-      <Footer
-        onNavigate={handleNavigate}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
-    </div>
+        {/* Global Footer */}
+        <Footer
+          onNavigate={handleNavigate}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+      </div>
+    </MotionConfig>
+  );
+}
+
+export default function App() {
+  return (
+    <MotionProvider>
+      <AppContent />
+    </MotionProvider>
   );
 }

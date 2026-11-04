@@ -9,6 +9,14 @@
     --cloud-white: #F5F7FC;
     --cosmic-violet: #8060B9;
     --devil-crimson: #B51227;
+
+    /* Dynamic fluid typography scaling proportionally across mobile, tablet, desktop, and console/TV */
+    font-size: clamp(14px, 0.95rem + 0.25vw, 18.5px);
+  }
+
+  /* Console & 10-foot TV UI automatic magnification */
+  [data-device="console"] {
+    font-size: clamp(16px, 1.1rem + 0.35vw, 21px);
   }
 
   body {
@@ -20,11 +28,21 @@
     padding: 0;
     selection-background-color: #176BFF;
     selection-color: #ffffff;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   ::selection {
     background: rgba(23, 107, 255, 0.4);
     color: #ffffff;
+  }
+
+  /* Universal high-visibility focus indicator for Console/Gamepad/Keyboard D-pad navigation */
+  :focus-visible {
+    outline: 2px solid #176BFF !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 16px rgba(23, 107, 255, 0.7) !important;
   }
 }
 
@@ -43,6 +61,7 @@
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: #090B12;
@@ -87,10 +106,35 @@
   box-shadow: 0 0 35px -5px rgba(128, 96, 185, 0.35);
 }
 
-/* Custom futuristic cursor visibility on desktop */
+/* Custom futuristic cursor visibility on desktop with fine mouse pointer */
 @media (pointer: fine) and (hover: hover) {
   html.custom-cursor-active,
   html.custom-cursor-active * {
     cursor: none !important;
   }
+}
+
+/* Safe area padding for mobile devices with home indicators & notches */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+/* 
+ * STRICT REDUCED MOTION ENFORCEMENT
+ * When Reduced Motion is toggled ON, immediately calm all CSS keyframes, 
+ * animations, transitions, and pulsing glimmers across the DOM.
+ */
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Ensure backdrop filters and heavy blurs are optimized on mobile/reduced-motion */
+[data-reduced-motion="true"] .backdrop-blur-xl,
+[data-reduced-motion="true"] .backdrop-blur-2xl {
+  backdrop-filter: blur(4px) !important;
 }

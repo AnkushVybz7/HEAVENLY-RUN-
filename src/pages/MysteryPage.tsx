@@ -16,6 +16,7 @@ import {
   Disc,
   Radio,
 } from 'lucide-react';
+import { InstagramSection } from '../components/InstagramSection';
 
 export const MysteryPage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -327,6 +328,9 @@ export const MysteryPage: React.FC = () => {
             The guitarist's persona, face, and official sponsorship details will be disclosed in synchrony with the official HEAVENLY-RUN global reveal. Until then, the focus remains purely on the sound.
           </p>
         </section>
+
+        {/* Dedicated Promotional Instagram Section */}
+        <InstagramSection />
       </div>
     </div>
   );

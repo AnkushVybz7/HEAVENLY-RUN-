@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAllSubscribers, SubscriberDoc } from '../services/firebase';
+import { fetchAllSubscribers, clearAllSubscribers, SubscriberDoc } from '../services/firebase';
 import { listGoogleForms, createHeavenlyRunForm, GoogleFormItem } from '../services/googleForms';
 import { SignUpTrendChart } from '../components/admin/SignUpTrendChart';
 import {
@@ -15,12 +15,17 @@ import {
   ExternalLink,
   FileText,
   Mail,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const AdminFirst50Page: React.FC = () => {
   const [subscribers, setSubscribers] = useState<SubscriberDoc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearNotice, setClearNotice] = useState<string | null>(null);
 
   // Google Forms integration state
   const [formsList, setFormsList] = useState<GoogleFormItem[]>([]);
@@ -96,6 +101,22 @@ export const AdminFirst50Page: React.FC = () => {
     }
   };
 
+  const handleClearRoster = async () => {
+    setIsClearing(true);
+    setClearNotice(null);
+    try {
+      const res = await clearAllSubscribers();
+      setSubscribers([]);
+      setClearNotice(`First 50 list cleared successfully. Removed ${res.deletedCount} entry/entries. Roster reset to 0 / 50.`);
+      setShowClearConfirm(false);
+      setTimeout(() => setClearNotice(null), 6000);
+    } catch (err: any) {
+      setClearNotice(`Error resetting roster: ${err?.message || 'Failed'}`);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-[#090B12] text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       {/* Background Ambience */}
@@ -144,8 +165,52 @@ export const AdminFirst50Page: React.FC = () => {
               <Download className="w-4 h-4" />
               <span>EXPORT CSV</span>
             </button>
+
+            {showClearConfirm ? (
+              <div className="flex items-center gap-2 bg-red-950/90 border border-red-500/60 rounded-xl px-3 py-1.5 shadow-xl">
+                <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
+                <span className="text-[11px] font-tech text-red-200">Remove all registered entries?</span>
+                <button
+                  onClick={handleClearRoster}
+                  disabled={isClearing}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-tech font-bold cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  {isClearing ? 'WIPING...' : 'YES, CLEAR ALL'}
+                </button>
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[11px] font-tech cursor-pointer transition-colors"
+                >
+                  CANCEL
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="px-4 py-2.5 rounded-xl bg-red-950/50 hover:bg-red-900/60 border border-red-500/40 text-red-300 text-xs font-tech font-bold transition-colors flex items-center gap-2 cursor-pointer"
+                title="Remove all registered names from First 50 list"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+                <span>CLEAR / RESET ROSTER</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {clearNotice && (
+          <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-500/50 text-emerald-200 text-xs font-tech flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <span>{clearNotice}</span>
+            </div>
+            <button
+              onClick={() => setClearNotice(null)}
+              className="text-white/60 hover:text-white text-xs font-tech uppercase"
+            >
+              DISMISS
+            </button>
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PageRoute } from '../../types';
+import { useMotionPreference } from '../../context/MotionContext';
 
 interface InteractiveParticleFieldProps {
   currentRoute?: PageRoute;
@@ -14,39 +15,122 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
   const mountRef = useRef<HTMLDivElement>(null);
   const routeRef = useRef<PageRoute>(currentRoute);
 
-  // Keep route ref updated for the render loop
+  const { reducedMotion, deviceType } = useMotionPreference();
+  const reducedMotionRef = useRef(reducedMotion);
+  const deviceTypeRef = useRef(deviceType);
+
+  // Keep refs synchronized for the Three.js tick loop
   useEffect(() => {
     routeRef.current = currentRoute;
   }, [currentRoute]);
 
   useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    deviceTypeRef.current = deviceType;
+  }, [deviceType]);
+
+  useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isMobile = window.innerWidth < 768;
+    const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
 
-    // Allocate max particles buffer, dynamically activate subsets based on route
-    const maxParticles = prefersReducedMotion ? 60 : isMobile ? 180 : 420;
+    // Allocate max particles buffer, dynamically activate subsets based on device and motion setting
+    const maxParticles = isMobile ? 140 : isTablet ? 240 : 420;
 
     let width = window.innerWidth;
     let height = window.innerHeight;
 
+    let renderer: THREE.WebGLRenderer | null = null;
+    let handleContextLost: ((e: Event) => void) | null = null;
+
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        powerPreference: 'default',
+        antialias: false,
+        failIfMajorPerformanceCaveat: false,
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.5));
+      renderer.setSize(width, height);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      handleContextLost = (e: Event) => {
+        e.preventDefault();
+      };
+      renderer.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+      container.innerHTML = '';
+      container.appendChild(renderer.domElement);
+    } catch {
+      renderer = null;
+    }
+
+    if (!renderer) {
+      const canvas2d = document.createElement('canvas');
+      canvas2d.width = width;
+      canvas2d.height = height;
+      canvas2d.style.width = '100%';
+      canvas2d.style.height = '100%';
+      canvas2d.style.display = 'block';
+      container.innerHTML = '';
+      container.appendChild(canvas2d);
+      const ctx = canvas2d.getContext('2d');
+      if (!ctx) return;
+
+      const pCount = isMobile ? 40 : 80;
+      const particles2d = Array.from({ length: pCount }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        radius: Math.random() * 2 + 1,
+        alpha: Math.random() * 0.6 + 0.2,
+        color: ['#176BFF', '#A8D8FF', '#C7CDD5', '#8060B9', '#FFFFFF'][Math.floor(Math.random() * 5)],
+      }));
+
+      let frame2d = 0;
+      const render2d = () => {
+        ctx.clearRect(0, 0, width, height);
+        particles2d.forEach((p) => {
+          if (!reducedMotionRef.current) {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0) p.x = width;
+            if (p.x > width) p.x = 0;
+            if (p.y < 0) p.y = height;
+            if (p.y > height) p.y = 0;
+          }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha;
+          ctx.fill();
+        });
+        frame2d = requestAnimationFrame(render2d);
+      };
+      render2d();
+
+      const handleResize2d = () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas2d.width = width;
+        canvas2d.height = height;
+      };
+      window.addEventListener('resize', handleResize2d);
+
+      return () => {
+        cancelAnimationFrame(frame2d);
+        window.removeEventListener('resize', handleResize2d);
+      };
+    }
+
+    const activeRenderer = renderer;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
     camera.position.z = 15;
-
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      powerPreference: 'high-performance',
-      antialias: false,
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(width, height);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
 
     // Particle Geometry & Buffers
     const geometry = new THREE.BufferGeometry();
@@ -58,7 +142,7 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
     const sizes = new Float32Array(maxParticles);
     const opacities = new Float32Array(maxParticles);
 
-    // Palette Palettes per Theme
+    // Color Palettes
     const celestialPalette = [
       new THREE.Color('#176BFF'), // Electric Blue
       new THREE.Color('#C7CDD5'), // Chrome Silver
@@ -155,6 +239,9 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
     const targetMousePos = { x: -9999, y: -9999 };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      // If reduced motion is engaged, don't calculate particle displacement
+      if (reducedMotionRef.current) return;
+
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
@@ -174,7 +261,7 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
 
     window.addEventListener('scroll', handleScroll, { passive: true });
 
-    // Window resize
+    // Dynamic Device Responsive Window Resize
     const handleResize = () => {
       if (!renderer || !camera) return;
       width = window.innerWidth;
@@ -194,14 +281,13 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Current Route Theme Configuration
       const route = routeRef.current;
       const isHome = route === '/';
       const isMystery = route === '/mystery';
       const isFlavours = route === '/flavours';
+      const isReduced = reducedMotionRef.current;
 
-      // Active particle count based on page theme:
-      // Pronounced on Home & Mystery, balanced on Flavours, subtle on FAQ & Admin
+      // Active particle count and intensity based on route and reduced motion preference
       let activeCount = maxParticles;
       let targetOpacity = 0.85;
       let targetSize = isMobile ? 0.36 : 0.48;
@@ -209,26 +295,34 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
       let interactionRadius = 4.2;
       let activePalette = celestialPalette;
 
-      if (isHome) {
-        activeCount = maxParticles; // Full pronounced celestial
+      if (isReduced) {
+        // STRICT REDUCED MOTION: minimal count, calm static dusting, zero vortex swirl
+        activeCount = Math.min(30, Math.floor(maxParticles * 0.15));
+        targetOpacity = 0.25;
+        targetSize = 0.28;
+        speedFactor = 0.04;
+        interactionRadius = 0;
+        activePalette = subtlePalette;
+      } else if (isHome) {
+        activeCount = maxParticles;
         targetOpacity = 0.9;
         speedFactor = 1.2;
         interactionRadius = 4.5;
         activePalette = celestialPalette;
       } else if (isMystery) {
-        activeCount = maxParticles; // Full pronounced mystery
+        activeCount = maxParticles;
         targetOpacity = 0.95;
         speedFactor = 1.35;
         interactionRadius = 5.0;
         activePalette = mysteryPalette;
       } else if (isFlavours) {
-        activeCount = Math.floor(maxParticles * 0.55); // Moderate effervescent
+        activeCount = Math.floor(maxParticles * 0.55);
         targetOpacity = 0.65;
         speedFactor = 0.85;
         interactionRadius = 3.5;
         activePalette = flavoursPalette;
       } else {
-        // FAQ & Admin: subtle, quiet ambient dust
+        // FAQ & Admin: subtle ambient dust
         activeCount = Math.floor(maxParticles * 0.28);
         targetOpacity = 0.35;
         speedFactor = 0.45;
@@ -236,7 +330,7 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
         activePalette = subtlePalette;
       }
 
-      // Smooth opacity transition
+      // Smooth opacity & size transition
       material.opacity += (targetOpacity - material.opacity) * (1 - Math.exp(-4 * delta));
       material.size += (targetSize - material.size) * (1 - Math.exp(-4 * delta));
 
@@ -247,7 +341,9 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
       const posArray = geometry.attributes.position.array as Float32Array;
       const colArray = geometry.attributes.color.array as Float32Array;
 
-      const scrollSpeedMultiplier = 1 + scrollProgress * (isHome || isMystery ? 2.0 : 0.8);
+      const scrollSpeedMultiplier = isReduced
+        ? 1.0
+        : 1 + scrollProgress * (isHome || isMystery ? 2.0 : 0.8);
 
       for (let i = 0; i < maxParticles; i++) {
         const i3 = i * 3;
@@ -262,7 +358,7 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
         let py = posArray[i3 + 1];
         let pz = basePositions[i3 + 2]; // restore z
 
-        if (!prefersReducedMotion) {
+        if (!isReduced) {
           // Ambient vertical & horizontal drift
           py += velocities[i3 + 1] * scrollSpeedMultiplier * speedFactor;
           px += Math.sin(elapsed * 0.8 + i) * 0.007 * speedFactor;
@@ -278,7 +374,7 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
           const dy = py - mousePos.y;
           const distSq = dx * dx + dy * dy;
 
-          if (distSq < interactionRadius * interactionRadius && distSq > 0.01) {
+          if (interactionRadius > 0 && distSq < interactionRadius * interactionRadius && distSq > 0.01) {
             const dist = Math.sqrt(distSq);
             const force = (interactionRadius - dist) / interactionRadius;
             const pushX = (dx / dist) * force * 0.45;
@@ -288,6 +384,12 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
 
             px += pushX + swirlX;
             py += pushY + swirlY;
+          }
+        } else {
+          // In reduced motion, subtle static positions with micro-drift only
+          py += velocities[i3 + 1] * 0.05;
+          if (py > 12.5) {
+            py = -12.5;
           }
         }
 
@@ -305,10 +407,10 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.color.needsUpdate = true;
 
-      // Gentle rotation responding to scroll
-      pointCloud.rotation.z = scrollProgress * (isMystery ? 0.6 : 0.35);
+      // Gentle rotation responding to scroll (disabled in reduced motion)
+      pointCloud.rotation.z = isReduced ? 0 : scrollProgress * (isMystery ? 0.6 : 0.35);
 
-      renderer.render(scene, camera);
+      activeRenderer.render(scene, camera);
       frameId = requestAnimationFrame(tick);
     }
 
@@ -333,7 +435,10 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      renderer.dispose();
+      if (handleContextLost) {
+        activeRenderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      }
+      activeRenderer.dispose();
       geometry.dispose();
       material.dispose();
       particleTexture.dispose();
@@ -343,7 +448,10 @@ export const InteractiveParticleField: React.FC<InteractiveParticleFieldProps> =
   return (
     <div
       ref={mountRef}
-      className={`fixed inset-0 pointer-events-none overflow-hidden select-none z-0 ${className}`}
+      className={`fixed inset-0 pointer-events-none overflow-hidden transition-opacity duration-700 ${
+        reducedMotion ? 'opacity-30' : 'opacity-100'
+      } ${className}`}
+      style={{ zIndex: 1 }}
       aria-hidden="true"
     />
   );

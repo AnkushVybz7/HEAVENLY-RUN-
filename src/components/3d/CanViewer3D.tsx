@@ -6,6 +6,7 @@ import { PRODUCTS } from '../../data/products';
 import { createCanTexture, createDropletBumpMap } from './canTextureGenerator';
 import { RotateCw, ZoomIn, ZoomOut, Eye, Layers, ChevronDown, ChevronUp, Sparkles, Check, Volume2 } from 'lucide-react';
 import { audioSynth } from '../../utils/audio';
+import { useMotionPreference } from '../../context/MotionContext';
 
 interface CanViewer3DProps {
   initialFlavour?: FlavourId;
@@ -19,12 +20,24 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
   className = '',
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const { reducedMotion, deviceType } = useMotionPreference();
+  const reducedMotionRef = useRef(reducedMotion);
+
   const [currentFlavour, setCurrentFlavour] = useState<FlavourId>(initialFlavour);
-  const [isAutoRotating, setIsAutoRotating] = useState<boolean>(true);
+  const [isAutoRotating, setIsAutoRotating] = useState<boolean>(!reducedMotion);
   const [isExploded, setIsExploded] = useState<boolean>(false);
   const [controlsCollapsed, setControlsCollapsed] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [hasWebGlError, setHasWebGlError] = useState<boolean>(false);
+  const [fallbackRotation, setFallbackRotation] = useState<number>(0);
+
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+    if (reducedMotion) {
+      setIsAutoRotating(false);
+    }
+  }, [reducedMotion]);
 
   // References to keep mutable 3D state
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -84,19 +97,34 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     const container = mountRef.current;
     if (!container) return;
 
-    // Detect software WebGL as per guidelines
-    const isSoftwareGl = (() => {
-      const gl = document.createElement('canvas').getContext('webgl2');
-      if (!gl) return true;
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
-      const gpu = String(gl.getParameter(param));
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
-      return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
-    })();
-
     const width = container.clientWidth || 600;
     const height = container.clientHeight || 550;
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'default',
+        failIfMajorPerformanceCaveat: false,
+      });
+    } catch (err) {
+      console.warn('CanViewer3D WebGL context creation failed; switching to 2.5D interactive showcase:', err);
+      setHasWebGlError(true);
+      return;
+    }
+
+    const isSoftwareGl = (() => {
+      try {
+        const gl = renderer.getContext();
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+        const gpu = String(gl.getParameter(param));
+        return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      } catch {
+        return false;
+      }
+    })();
 
     // Scene
     const scene = new THREE.Scene();
@@ -107,12 +135,6 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     camera.position.set(0, 0.3, 5.2);
     cameraRef.current = camera;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({
-      antialias: !isSoftwareGl,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -121,6 +143,13 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     renderer.shadowMap.enabled = !isSoftwareGl;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn('CanViewer3D WebGL context lost; switching to 2.5D interactive showcase.');
+      setHasWebGlError(true);
+    };
+    renderer.domElement.addEventListener('webglcontextlost', handleContextLost, false);
 
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
@@ -356,36 +385,54 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
 
     window.addEventListener('resize', handleResize);
 
+    // D-Pad & Keyboard Navigation for Console/TV/Desktop Accessibility
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        targetRotationRef.current.y -= 0.25;
+      } else if (e.key === 'ArrowRight') {
+        targetRotationRef.current.y += 0.25;
+      } else if (e.key === 'ArrowUp') {
+        targetZoomRef.current = Math.max(3.0, targetZoomRef.current - 0.4);
+      } else if (e.key === 'ArrowDown') {
+        targetZoomRef.current = Math.min(7.5, targetZoomRef.current + 0.4);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     // Animation Loop with Exponential Damping
     let frameId = 0;
     const clock = new THREE.Clock();
 
     function tick() {
       const delta = clock.getDelta();
+      const isReduced = reducedMotionRef.current;
 
       if (canRoot) {
-        // Auto-rotation when enabled and user is not manually dragging
-        if (isAutoRotating && !isDraggingRef.current) {
+        // Auto-rotation when enabled, user is not dragging, and reduced motion is OFF
+        if (isAutoRotating && !isDraggingRef.current && !isReduced) {
           targetRotationRef.current.y += delta * 0.45;
         }
 
         // Smooth exponential damping
-        const smoothFactor = 1 - Math.exp(-12 * delta);
+        const smoothFactor = 1 - Math.exp((isReduced ? -18 : -12) * delta);
         canRoot.rotation.y += (targetRotationRef.current.y - canRoot.rotation.y) * smoothFactor;
         canRoot.rotation.x += (targetRotationRef.current.x - canRoot.rotation.x) * smoothFactor;
 
-        // Subtle floating breathing effect
-        canRoot.position.y = -0.2 + Math.sin(clock.getElapsedTime() * 1.5) * 0.04;
+        // Floating breathing effect (calmed in reduced motion)
+        canRoot.position.y = isReduced
+          ? -0.2
+          : -0.2 + Math.sin(clock.getElapsedTime() * 1.5) * 0.04;
       }
 
       if (camera) {
-        const zoomSmooth = 1 - Math.exp(-10 * delta);
+        const zoomSmooth = 1 - Math.exp((isReduced ? -16 : -10) * delta);
         camera.position.z += (targetZoomRef.current - camera.position.z) * zoomSmooth;
       }
 
       // Exploded / Inspection view transition
       if (lidGroupRef.current && tabGroupRef.current) {
-        const explodeFactor = 1 - Math.exp(-8 * delta);
+        const explodeFactor = 1 - Math.exp((isReduced ? -16 : -8) * delta);
         const currentExplodeY = lidGroupRef.current.position.y;
         const targetLidY = baseTaperHeight + bodyHeight + neckHeight + targetExplodeRef.current * 0.6;
         lidGroupRef.current.position.y += (targetLidY - currentExplodeY) * explodeFactor;
@@ -404,6 +451,7 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     // Cleanup
     return () => {
       cancelAnimationFrame(frameId);
+      window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleResize);
       domElement.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('mousemove', handlePointerMove);
@@ -412,6 +460,7 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
       domElement.removeEventListener('wheel', handleWheel);
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
 
       renderer.dispose();
       bodyGeometry.dispose();
@@ -438,16 +487,19 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
   // Sync zoom control
   const handleZoomIn = () => {
     targetZoomRef.current = Math.max(3.0, targetZoomRef.current - 0.7);
+    setZoomLevel((z) => Math.min(1.35, z + 0.12));
   };
 
   const handleZoomOut = () => {
     targetZoomRef.current = Math.min(7.5, targetZoomRef.current + 0.7);
+    setZoomLevel((z) => Math.max(0.75, z - 0.12));
   };
 
   const handleResetAngle = () => {
     audioSynth.playCanMetallicChime();
     targetRotationRef.current = { x: 0.1, y: Math.PI * 0.98 };
     targetZoomRef.current = 5.2;
+    setFallbackRotation((prev) => (prev === 0 ? 180 : 0));
   };
 
   const toggleExploded = () => {
@@ -467,6 +519,111 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     >
       {/* 3D Scene Viewport */}
       <div ref={mountRef} className="absolute inset-0 cursor-grab active:cursor-grabbing w-full h-full" />
+
+      {/* Interactive 2.5D Product Showcase (Seamless fallback if WebGL is unavailable or blocked) */}
+      {hasWebGlError && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-auto p-4 z-0">
+          <div
+            className="relative flex flex-col items-center justify-center transition-all duration-500 select-none cursor-pointer"
+            style={{
+              transform: `scale(${zoomLevel}) rotateY(${fallbackRotation}deg)`,
+              perspective: '1000px',
+            }}
+            onClick={() => setFallbackRotation((r) => r + 45)}
+            title="Click to rotate can angle"
+          >
+            {/* Can Top Chime & Pull Tab */}
+            <div
+              className={`relative transition-all duration-500 ${
+                isExploded ? '-translate-y-12 opacity-90' : 'translate-y-0'
+              }`}
+            >
+              <div className="w-36 h-7 rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-400 border border-white/60 shadow-md flex items-center justify-center relative">
+                <div className="w-28 h-4 rounded-full bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 border border-slate-600/40 flex items-center justify-center">
+                  <div className="w-10 h-2.5 rounded-full bg-slate-300 border border-slate-500 shadow-inner flex items-center justify-end px-1">
+                    <div className="w-2 h-2 rounded-full bg-slate-600" />
+                  </div>
+                </div>
+              </div>
+              {isExploded && (
+                <div className="text-[10px] font-tech text-amber-300 text-center mt-1 uppercase tracking-widest font-bold">
+                  EXPLODED LID VIEW
+                </div>
+              )}
+            </div>
+
+            {/* Neck Taper */}
+            <div className="w-38 h-3.5 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-400 border-x border-white/30" />
+
+            {/* Main Can Body Cylinder */}
+            <div
+              className={`w-44 h-72 rounded-sm border-x border-white/20 relative overflow-hidden flex flex-col justify-between p-4 shadow-2xl transition-all duration-500 ${
+                currentFlavour === 'devil-rush'
+                  ? 'bg-gradient-to-r from-[#0d0305] via-[#240409] to-[#0d0305] text-white shadow-red-950/60'
+                  : 'bg-gradient-to-r from-[#eef2f7] via-[#ffffff] to-[#d8e2ef] text-[#0A162B] shadow-blue-950/40'
+              }`}
+            >
+              {/* Metallic Sheen Highlight Reflection */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none transform -skew-x-12" />
+
+              {/* Condensation Beads Overlay */}
+              <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.7)_1px,transparent_1px),radial-gradient(circle_at_70%_60%,rgba(255,255,255,0.7)_1.5px,transparent_1.5px),radial-gradient(circle_at_40%_80%,rgba(255,255,255,0.7)_1px,transparent_1px)] pointer-events-none" />
+
+              {/* Top Can Branding */}
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <span className="text-[10px] font-tech tracking-[0.25em] font-bold uppercase opacity-70">
+                  300 ML • ZERO SUGAR
+                </span>
+                <span className="font-display font-black text-xl tracking-wider uppercase mt-1">
+                  HEAVENLY-RUN
+                </span>
+                <span className="text-[10px] font-tech tracking-[0.2em] font-bold uppercase opacity-80">
+                  ENERGY
+                </span>
+              </div>
+
+              {/* Center Flavour Emblem */}
+              <div className="relative z-10 flex flex-col items-center my-auto">
+                <div
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center font-display font-black text-2xl border shadow-lg ${
+                    currentFlavour === 'devil-rush'
+                      ? 'bg-red-950/80 border-red-500/60 text-red-400 shadow-red-900/50'
+                      : 'bg-blue-100 border-blue-400 text-blue-600 shadow-blue-400/40'
+                  }`}
+                >
+                  {currentFlavour === 'devil-rush' ? 'DR' : 'HR'}
+                </div>
+                <div
+                  className={`font-display font-black text-lg tracking-widest uppercase mt-2 ${
+                    currentFlavour === 'devil-rush' ? 'text-red-400' : 'text-blue-600'
+                  }`}
+                >
+                  {currentFlavour === 'devil-rush' ? 'DEVIL RUSH' : 'HEAVENLY RUSH'}
+                </div>
+                <div className="text-[9px] font-tech tracking-wider uppercase opacity-75 mt-0.5">
+                  100 MG CAFFEINE • B-VITAMINS
+                </div>
+              </div>
+
+              {/* Bottom Slogan */}
+              <div className="relative z-10 text-center border-t border-current/15 pt-2">
+                <span className="text-[10px] font-tech font-bold uppercase tracking-wider block">
+                  {currentFlavour === 'devil-rush'
+                    ? 'SOUR FIRST. FIRE LAST.'
+                    : 'SWEET FIRST. SOUR NEXT.'}
+                </span>
+              </div>
+            </div>
+
+            {/* Bottom Taper & Base Rim */}
+            <div className="w-38 h-3.5 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-400 border-x border-white/30" />
+            <div className="w-34 h-3 rounded-b-full bg-gradient-to-r from-slate-400 via-slate-200 to-slate-500 border border-slate-600 shadow-inner" />
+
+            {/* Realistic Contact Shadow */}
+            <div className="w-48 h-6 bg-black/60 rounded-full blur-md -mt-1 pointer-events-none" />
+          </div>
+        </div>
+      )}
 
       {/* Top Left Minimal Spec Badge */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none flex flex-col gap-1">

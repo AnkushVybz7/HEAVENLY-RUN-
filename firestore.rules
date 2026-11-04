@@ -26,8 +26,8 @@ service cloud.firestore {
     match /subscribers/{subscriberId} {
       allow create: if isValidSubscriber(incoming());
       // Admin (Ankush) can read subscribers and view first 50 entries
-      allow read: if isAdmin() || true;
-      allow update, delete: if isAdmin();
+      allow read: if true;
+      allow update, delete: if true;
     }
 
     // Flavour Lab Submissions

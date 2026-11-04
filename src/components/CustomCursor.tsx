@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useMotionPreference } from '../context/MotionContext';
 
 type CursorVariant = 'default' | 'hover' | 'devil' | 'input' | 'canvas3d' | 'drag';
 
 export const CustomCursor: React.FC = () => {
+  const { reducedMotion, deviceType } = useMotionPreference();
   const [enabled, setEnabled] = useState(false);
   const [visible, setVisible] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
@@ -18,9 +20,17 @@ export const CustomCursor: React.FC = () => {
   const ringRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Disable custom cursor if reduced motion is preferred or if on console/TV/mobile
+    if (reducedMotion || deviceType === 'console' || deviceType === 'mobile') {
+      setEnabled(false);
+      document.documentElement.classList.remove('custom-cursor-active');
+      return;
+    }
+
     // Only activate on devices with fine pointer (mouse / trackpad) and hover capability
     const mediaQuery = window.matchMedia('(pointer: fine) and (hover: hover)');
     if (!mediaQuery.matches) {
+      setEnabled(false);
       return;
     }
 
