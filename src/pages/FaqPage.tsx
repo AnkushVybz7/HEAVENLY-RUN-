@@ -96,7 +96,7 @@ export const FaqPage: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#090B12] text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative min-h-screen bg-[#090B12] text-white pt-28 sm:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute top-24 left-1/3 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
 

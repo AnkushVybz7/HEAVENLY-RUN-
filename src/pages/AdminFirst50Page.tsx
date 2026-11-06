@@ -118,7 +118,7 @@ export const AdminFirst50Page: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#090B12] text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen bg-[#090B12] text-white pt-28 sm:pt-32 pb-20 px-4 sm:px-6 lg:px-8">
       {/* Background Ambience */}
       <div className="absolute top-20 left-1/4 w-[600px] h-[600px] bg-amber-600/10 rounded-full blur-[140px] pointer-events-none" />
 

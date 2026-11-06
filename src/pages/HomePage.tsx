@@ -12,7 +12,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const [selectedAdModal, setSelectedAdModal] = useState<string | null>(null);
 
   return (
-    <div className="relative min-h-screen bg-transparent text-white pt-20 overflow-hidden">
+    <div className="relative min-h-screen bg-transparent text-white pt-24 sm:pt-28 overflow-hidden">
       {/* 1. 3D CELESTIAL HERO SECTION */}
       <section className="relative min-h-[90vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-20 overflow-hidden">
         {/* 3D Celestial WebGL Canvas */}

@@ -32,7 +32,7 @@ export const MultiPageDock: React.FC<MultiPageDockProps> = ({
   return (
     <aside
       aria-label="Quick Multi-Page Navigation and Session Control"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[96vw] w-auto animate-fadeIn"
+      className="fixed top-16 sm:top-[70px] left-1/2 -translate-x-1/2 z-40 max-w-[96vw] w-auto animate-fadeIn transition-all duration-300"
     >
       <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl bg-[#090C16]/95 backdrop-blur-xl border border-white/20 shadow-[0_10px_35px_rgba(0,0,0,0.85)] text-white text-xs font-tech">
         {/* Label */}

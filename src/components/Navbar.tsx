@@ -96,8 +96,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </button>
 
-          {/* Desktop Navigation Links (Distinct multi-page navigation) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2.5 py-1.5 backdrop-blur-md">
+          {/* Desktop Navigation Links (Unified in the prominent top Page Shifter dock) */}
+          <nav className="hidden items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2.5 py-1.5 backdrop-blur-md">
             {navLinks.map((link) => {
               const isActive = currentRoute === link.route;
               return (
@@ -228,7 +228,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Slide-down Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden bg-[#090B12]/98 backdrop-blur-xl pt-20 px-6 flex flex-col justify-between pb-8 animate-fadeIn">
+        <div className="fixed inset-0 z-[55] lg:hidden bg-[#090B12]/98 backdrop-blur-xl pt-20 px-6 flex flex-col justify-between pb-8 animate-fadeIn">
           <div className="flex flex-col gap-2.5">
             <div className="text-[11px] font-tech uppercase tracking-[0.25em] text-white/40 mb-1">
               Select Page ({navLinks.length} Pages Available)

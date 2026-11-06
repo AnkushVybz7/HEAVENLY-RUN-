@@ -97,7 +97,7 @@ export const FlavoursPage: React.FC = () => {
   const isDevil = selectedFlavour === 'devil-rush';
 
   return (
-    <div className="relative min-h-screen bg-transparent text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative min-h-screen bg-transparent text-white pt-28 sm:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background Ambience */}
       <div
         className={`absolute top-20 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full blur-[140px] pointer-events-none transition-colors duration-700 ${

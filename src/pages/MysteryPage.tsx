@@ -107,7 +107,7 @@ export const MysteryPage: React.FC = () => {
   ];
 
   return (
-    <div className="relative min-h-screen bg-[#090B12] text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative min-h-screen bg-[#090B12] text-white pt-28 sm:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background Stage Fog Gradient */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-gradient-to-b from-blue-900/10 via-red-950/10 to-transparent pointer-events-none blur-3xl" />
 

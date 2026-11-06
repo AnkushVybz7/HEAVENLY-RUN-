@@ -170,7 +170,7 @@ export default function App() {
         {currentRoute === '/admin-first-50' && (isAdmin ? <AdminFirst50Page /> : <div className="min-h-[50vh] flex items-center justify-center text-white/70">Sign in with the authorised founder Google account to access this page.</div>)}
       </main>
 
-      {/* Always-Visible Floating Multi-Page Switcher & 1-Click Logout Dock */}
+      {/* Always-Visible Top Floating Multi-Page Switcher & 1-Click Logout Dock */}
       <MultiPageDock
         currentRoute={currentRoute}
         onNavigate={handleNavigate}
