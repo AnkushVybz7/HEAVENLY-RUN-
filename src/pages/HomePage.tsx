@@ -3,6 +3,7 @@ import { PageRoute } from '../types';
 import { CelestialHeroCanvas } from '../components/3d/CelestialHeroCanvas';
 import { PRODUCTS, BRAND_TAGLINE, BRAND_NAME, LAUNCH_DATE_STATUS } from '../data/products';
 import { Sparkles, ArrowRight, ShieldCheck, Zap, Disc3, Eye, ZoomIn, X } from 'lucide-react';
+import { InstagramSection } from '../components/InstagramSection';
 
 interface HomePageProps {
   onNavigate: (route: PageRoute) => void;
@@ -285,7 +286,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* 4. FINAL TEASER & LAUNCH STATUS BANNER */}
+      {/* 4. OFFICIAL INSTAGRAM BROADCAST (FOLLOW THE FREQUENCY) */}
+      <InstagramSection />
+
+      {/* 5. FINAL TEASER & LAUNCH STATUS BANNER */}
       <section className="relative py-24 px-4 sm:px-6 lg:px-8 border-t border-white/10 bg-gradient-to-b from-transparent via-[#0e1320] to-[#090B12]">
         <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
           <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/20 flex items-center justify-center mb-6 shadow-2xl">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute } from '../types';
 import { BRAND_NAME, BRAND_TAGLINE, CAFFEINE_WARNING } from '../data/products';
-import { Shield, Sparkles, ExternalLink, X, FileText } from 'lucide-react';
+import { Shield, Sparkles, ExternalLink, X, FileText, Instagram } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (route: PageRoute) => void;
@@ -55,6 +55,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, currentUser, onLogou
               >
                 THE MYSTERY
               </button>
+              <a
+                href="https://www.instagram.com/heavenly_run.energy/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 rounded-full text-xs font-tech font-bold tracking-widest text-white bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:brightness-110 active:scale-95 transition-all shadow-md shadow-pink-500/20 cursor-pointer flex items-center gap-2"
+                title="Follow on Instagram"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>FOLLOW ON INSTAGRAM</span>
+              </a>
             </div>
           </div>
 

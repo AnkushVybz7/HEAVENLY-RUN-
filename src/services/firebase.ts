@@ -3,6 +3,7 @@ import {
   getAuth,
   signInWithPopup,
   GoogleAuthProvider,
+  GithubAuthProvider,
   onAuthStateChanged,
   signOut,
   User,
@@ -67,6 +68,41 @@ export const signInWithGoogle = async (): Promise<{ user: User; accessToken: str
     return { user: result.user, accessToken: cachedAccessToken || '' };
   } catch (err) {
     console.warn('Google sign in error:', err);
+    throw err;
+  } finally {
+    isSigningIn = false;
+  }
+};
+
+// GitHub Auth Provider
+const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('read:user');
+githubProvider.addScope('user:email');
+
+export const signInWithGithub = async (): Promise<{ user: User; accessToken: string } | null> => {
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, githubProvider);
+    const credential = GithubAuthProvider.credentialFromResult(result);
+    cachedAccessToken = credential?.accessToken || null;
+    return { user: result.user, accessToken: cachedAccessToken || '' };
+  } catch (err: any) {
+    console.warn('GitHub sign in error:', err);
+    if (err?.code === 'auth/operation-not-allowed') {
+      const error = new Error('GitHub Sign-In is not currently enabled in the Firebase Authentication console. To enable it, open Firebase Console > Authentication > Sign-in method > Add provider > GitHub.');
+      (error as any).code = 'auth/operation-not-allowed';
+      throw error;
+    }
+    if (err?.code === 'auth/popup-closed-by-user') {
+      const error = new Error('GitHub Sign-In popup was closed before completing authentication.');
+      (error as any).code = 'auth/popup-closed-by-user';
+      throw error;
+    }
+    if (err?.code === 'auth/account-exists-with-different-credential') {
+      const error = new Error('An account already exists with the email from your GitHub account. Please sign in using Google.');
+      (error as any).code = 'auth/account-exists-with-different-credential';
+      throw error;
+    }
     throw err;
   } finally {
     isSigningIn = false;
