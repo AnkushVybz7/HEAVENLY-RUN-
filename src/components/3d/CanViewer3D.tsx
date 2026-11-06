@@ -6,7 +6,6 @@ import { PRODUCTS } from '../../data/products';
 import { createCanTexture, createDropletBumpMap } from './canTextureGenerator';
 import { RotateCw, ZoomIn, ZoomOut, Eye, Layers, ChevronDown, ChevronUp, Sparkles, Check, Volume2 } from 'lucide-react';
 import { audioSynth } from '../../utils/audio';
-import { useMotionPreference } from '../../context/MotionContext';
 
 interface CanViewer3DProps {
   initialFlavour?: FlavourId;
@@ -20,24 +19,14 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
   className = '',
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const { reducedMotion, deviceType } = useMotionPreference();
-  const reducedMotionRef = useRef(reducedMotion);
-
   const [currentFlavour, setCurrentFlavour] = useState<FlavourId>(initialFlavour);
-  const [isAutoRotating, setIsAutoRotating] = useState<boolean>(!reducedMotion);
+  const [isAutoRotating, setIsAutoRotating] = useState<boolean>(true);
   const [isExploded, setIsExploded] = useState<boolean>(false);
   const [controlsCollapsed, setControlsCollapsed] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [hasWebGlError, setHasWebGlError] = useState<boolean>(false);
   const [fallbackRotation, setFallbackRotation] = useState<number>(0);
-
-  useEffect(() => {
-    reducedMotionRef.current = reducedMotion;
-    if (reducedMotion) {
-      setIsAutoRotating(false);
-    }
-  }, [reducedMotion]);
 
   // References to keep mutable 3D state
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -385,54 +374,36 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
 
     window.addEventListener('resize', handleResize);
 
-    // D-Pad & Keyboard Navigation for Console/TV/Desktop Accessibility
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        targetRotationRef.current.y -= 0.25;
-      } else if (e.key === 'ArrowRight') {
-        targetRotationRef.current.y += 0.25;
-      } else if (e.key === 'ArrowUp') {
-        targetZoomRef.current = Math.max(3.0, targetZoomRef.current - 0.4);
-      } else if (e.key === 'ArrowDown') {
-        targetZoomRef.current = Math.min(7.5, targetZoomRef.current + 0.4);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
     // Animation Loop with Exponential Damping
     let frameId = 0;
     const clock = new THREE.Clock();
 
     function tick() {
       const delta = clock.getDelta();
-      const isReduced = reducedMotionRef.current;
 
       if (canRoot) {
-        // Auto-rotation when enabled, user is not dragging, and reduced motion is OFF
-        if (isAutoRotating && !isDraggingRef.current && !isReduced) {
+        // Auto-rotation when enabled and user is not manually dragging
+        if (isAutoRotating && !isDraggingRef.current) {
           targetRotationRef.current.y += delta * 0.45;
         }
 
         // Smooth exponential damping
-        const smoothFactor = 1 - Math.exp((isReduced ? -18 : -12) * delta);
+        const smoothFactor = 1 - Math.exp(-12 * delta);
         canRoot.rotation.y += (targetRotationRef.current.y - canRoot.rotation.y) * smoothFactor;
         canRoot.rotation.x += (targetRotationRef.current.x - canRoot.rotation.x) * smoothFactor;
 
-        // Floating breathing effect (calmed in reduced motion)
-        canRoot.position.y = isReduced
-          ? -0.2
-          : -0.2 + Math.sin(clock.getElapsedTime() * 1.5) * 0.04;
+        // Subtle floating breathing effect
+        canRoot.position.y = -0.2 + Math.sin(clock.getElapsedTime() * 1.5) * 0.04;
       }
 
       if (camera) {
-        const zoomSmooth = 1 - Math.exp((isReduced ? -16 : -10) * delta);
+        const zoomSmooth = 1 - Math.exp(-10 * delta);
         camera.position.z += (targetZoomRef.current - camera.position.z) * zoomSmooth;
       }
 
       // Exploded / Inspection view transition
       if (lidGroupRef.current && tabGroupRef.current) {
-        const explodeFactor = 1 - Math.exp((isReduced ? -16 : -8) * delta);
+        const explodeFactor = 1 - Math.exp(-8 * delta);
         const currentExplodeY = lidGroupRef.current.position.y;
         const targetLidY = baseTaperHeight + bodyHeight + neckHeight + targetExplodeRef.current * 0.6;
         lidGroupRef.current.position.y += (targetLidY - currentExplodeY) * explodeFactor;
@@ -451,7 +422,6 @@ export const CanViewer3D: React.FC<CanViewer3DProps> = ({
     // Cleanup
     return () => {
       cancelAnimationFrame(frameId);
-      window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleResize);
       domElement.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('mousemove', handlePointerMove);

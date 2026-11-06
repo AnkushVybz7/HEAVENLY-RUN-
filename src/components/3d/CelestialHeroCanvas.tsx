@@ -1,25 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { useMotionPreference } from '../../context/MotionContext';
 
 export const CelestialHeroCanvas: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const { reducedMotion, deviceType } = useMotionPreference();
-  const reducedMotionRef = useRef(reducedMotion);
-  const deviceTypeRef = useRef(deviceType);
-
-  useEffect(() => {
-    reducedMotionRef.current = reducedMotion;
-  }, [reducedMotion]);
-
-  useEffect(() => {
-    deviceTypeRef.current = deviceType;
-  }, [deviceType]);
 
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
 
+    // Detect software WebGL as per guidelines
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
 
@@ -32,7 +21,6 @@ export const CelestialHeroCanvas: React.FC = () => {
         failIfMajorPerformanceCaveat: false,
       });
     } catch {
-      // Gracefully exit if WebGL context cannot be created
       return;
     }
 
@@ -51,12 +39,10 @@ export const CelestialHeroCanvas: React.FC = () => {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x090b12, 0.035);
 
-    // Dynamic initial camera distance based on device screen width
-    const initialZ = width < 768 ? 22 : width < 1024 ? 19 : 18;
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
-    camera.position.set(0, 0, initialZ);
+    camera.position.set(0, 0, 18);
 
-    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, width < 768 ? 1.25 : 1.75));
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 1.75));
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -83,7 +69,7 @@ export const CelestialHeroCanvas: React.FC = () => {
     scene.add(crimsonLight);
 
     // 1. Instanced Floating Stars & Cosmic Dust (InstancedMesh)
-    const starCount = isSoftwareGl ? 300 : width < 768 ? 400 : 800;
+    const starCount = isSoftwareGl ? 350 : 800;
     const starGeometry = new THREE.SphereGeometry(0.04, 8, 8);
     const starMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -164,14 +150,14 @@ export const CelestialHeroCanvas: React.FC = () => {
     ring3.rotation.y = Math.PI / 4;
     ringsGroup.add(ring3);
 
-    // 3. Procedural Nebula Clouds
+    // 3. Procedural Nebula Clouds (Canvas particle sprites)
     const nebulaCanvas = document.createElement('canvas');
     nebulaCanvas.width = 128;
     nebulaCanvas.height = 128;
     const nCtx = nebulaCanvas.getContext('2d')!;
-    const nGrad = nCtx.createRadialGradient(64, 64, 0, 64, 64, 60);
-    nGrad.addColorStop(0, 'rgba(23, 107, 255, 0.45)');
-    nGrad.addColorStop(0.5, 'rgba(128, 96, 185, 0.25)');
+    const nGrad = nCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    nGrad.addColorStop(0, 'rgba(23, 107, 255, 0.35)');
+    nGrad.addColorStop(0.4, 'rgba(128, 96, 185, 0.2)');
     nGrad.addColorStop(1, 'rgba(9, 11, 18, 0)');
     nCtx.fillStyle = nGrad;
     nCtx.fillRect(0, 0, 128, 128);
@@ -180,16 +166,17 @@ export const CelestialHeroCanvas: React.FC = () => {
     const nebulaMat = new THREE.SpriteMaterial({
       map: nebulaTex,
       transparent: true,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending,
-      opacity: 0.35,
     });
 
     const nebulaSprites: THREE.Sprite[] = [];
     const nebulaPositions = [
-      [-6, 3, -6],
-      [7, -2, -5],
-      [-2, -4, -4],
+      [-6, 3, -5],
+      [7, -3, -6],
+      [-2, -5, -4],
       [4, 4, -7],
+      [0, 1, -8],
     ];
 
     nebulaPositions.forEach(([x, y, z]) => {
@@ -200,27 +187,23 @@ export const CelestialHeroCanvas: React.FC = () => {
       nebulaSprites.push(sprite);
     });
 
-    // Mouse tracking for parallax
+    // Mouse parallax tracking
     const mousePos = { x: 0, y: 0 };
     const targetMousePos = { x: 0, y: 0 };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (reducedMotionRef.current) return;
       targetMousePos.x = (e.clientX / window.innerWidth) * 2 - 1;
       targetMousePos.y = -(e.clientY / window.innerHeight) * 2 + 1;
     };
 
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mousemove', handleMouseMove);
 
-    // Responsive Resize Handler adapting camera distance to display width
+    // Resize handler
     const handleResize = () => {
       if (!container || !renderer || !camera) return;
-      width = container.clientWidth || window.innerWidth;
-      height = container.clientHeight || window.innerHeight;
+      width = container.clientWidth;
+      height = container.clientHeight;
       camera.aspect = width / height;
-
-      // Ensure full celestial core is completely in-frame on mobile, tablet, desktop, or console
-      camera.position.z = width < 768 ? 22 : width < 1024 ? 19 : 18;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
     };
@@ -234,48 +217,33 @@ export const CelestialHeroCanvas: React.FC = () => {
     function tick() {
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
-      const isReduced = reducedMotionRef.current;
 
-      if (!isReduced) {
-        // Smooth camera mouse parallax
-        const smoothFactor = 1 - Math.exp(-4 * delta);
-        mousePos.x += (targetMousePos.x - mousePos.x) * smoothFactor;
-        mousePos.y += (targetMousePos.y - mousePos.y) * smoothFactor;
+      // Smooth camera mouse parallax
+      const smoothFactor = 1 - Math.exp(-4 * delta);
+      mousePos.x += (targetMousePos.x - mousePos.x) * smoothFactor;
+      mousePos.y += (targetMousePos.y - mousePos.y) * smoothFactor;
 
-        camera.position.x = mousePos.x * 1.5;
-        camera.position.y = mousePos.y * 1.2;
-        camera.lookAt(0, 0, 0);
+      camera.position.x = mousePos.x * 1.5;
+      camera.position.y = mousePos.y * 1.2;
+      camera.lookAt(0, 0, 0);
 
-        // Rotate orbital rings
-        ring1.rotation.z = elapsed * 0.08;
-        ring1.rotation.x = elapsed * 0.04;
-        ring2.rotation.y = elapsed * 0.12;
-        ring2.rotation.z = -elapsed * 0.06;
-        ring3.rotation.x = elapsed * 0.09;
-        ring3.rotation.y = elapsed * 0.1;
+      // Rotate orbital rings
+      ring1.rotation.z = elapsed * 0.08;
+      ring1.rotation.x = elapsed * 0.04;
+      ring2.rotation.y = elapsed * 0.12;
+      ring2.rotation.z = -elapsed * 0.06;
+      ring3.rotation.x = elapsed * 0.09;
+      ring3.rotation.y = elapsed * 0.1;
 
-        // Gentle nebula breathing
-        nebulaSprites.forEach((sprite, idx) => {
-          const offset = idx * 1.2;
-          sprite.position.y += Math.sin(elapsed * 0.5 + offset) * 0.003;
-        });
+      // Gentle nebula breathing
+      nebulaSprites.forEach((sprite, idx) => {
+        const offset = idx * 1.2;
+        sprite.position.y += Math.sin(elapsed * 0.5 + offset) * 0.003;
+      });
 
-        // Slowly rotate starfield
-        starMesh.rotation.y = elapsed * 0.015;
-        starMesh.rotation.x = elapsed * 0.008;
-      } else {
-        // Reduced motion: stationary serene space
-        camera.position.x = 0;
-        camera.position.y = 0;
-        camera.lookAt(0, 0, 0);
-
-        ring1.rotation.z = 0.2;
-        ring1.rotation.x = 0.1;
-        ring2.rotation.y = Math.PI / 3;
-        ring2.rotation.z = 0;
-        ring3.rotation.x = Math.PI / 4;
-        ring3.rotation.y = 0.2;
-      }
+      // Slowly rotate starfield
+      starMesh.rotation.y = elapsed * 0.015;
+      starMesh.rotation.x = elapsed * 0.008;
 
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(tick);

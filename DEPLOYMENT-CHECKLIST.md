@@ -1,106 +1,67 @@
-# HEAVENLY-RUN ENERGY — DEPLOYMENT CHECKLIST & PRODUCTION GUIDE
+# HEAVENLY-RUN — private deployment and security checklist
 
-This document summarizes configuration and verification steps for deploying the **HEAVENLY-RUN ENERGY** 3D platform to **Netlify** or a **Full-Stack Node/Cloud Run server**.
+This repository is configured for the Firebase project currently referenced by `firebase-applet-config.json`. The rules below are prepared locally; they are **not deployed** until a project owner runs the Firebase CLI with access to that project.
 
----
+## 1. Before deployment
 
-## 1. Official Instagram Integration
+- Confirm that `gen-lang-client-0192116749` and database `ai-studio-heavenlyrunenerg-0fa87315-1930-4cc0-b455-05552541778d` are the intended private test project/database.
+- Confirm the founder email in `firestore.rules` and `src/App.tsx` is the correct account.
+- Rotate the previously exposed password anywhere it was reused. Do not put passwords, service-account JSON, OAuth client secrets, or private keys in this repository.
+- Because this is a temporary private project, do not collect real visitor information until an adult/legal reviewer has approved the privacy notice, consent flow, retention/deletion process, and access controls.
 
-- **Official Username**: `@heavenly_run.energy`
-- **Official URL**: `https://www.instagram.com/heavenly_run.energy/`
-- **Status**: Live across all 4 pages (`/`, `/flavours`, `/mystery`, `/faq`), global `Footer.tsx`, and mobile navigation drawer in `Navbar.tsx`.
-- **Promotional Section**: "FOLLOW THE FREQUENCY." with supporting copy: *"Follow us for new flavour announcements, launch updates and exclusive HEAVENLY-RUN reveals."* and CTA *"FOLLOW ON INSTAGRAM"* opening in a new tab.
+## 2. Deploy Firestore rules
 
----
+Install the Firebase CLI on a trusted computer and sign in with an account that has access to the Firebase project:
 
-## 2. Authentication & Public Access Policy
-
-- **Google Authentication Removed**: All Google OAuth popups and buttons have been removed from the application.
-- **Open Public Access**: Visitors can freely explore the Homepage, Flavours 3D Lab, The Mystery, and FAQ pages without mandatory registration.
-- **First 50 Contest**: Available via the "SIGN IN / CONTEST" button, featuring the First 50 Can Name Offer with the opt-in checkbox enabled by default.
-- **Founder Verification**:
-  - Founder Email: `ankushbanerjeecool777@gmail.com`
-  - Founder Password: `Ankush@123`
-  - Unlocks the Fifth Page: `/admin-first-50` (First 50 Can Packaging portal with sign-up analytics).
-
----
-
-## 3. Real 6-Digit Email OTP Verification Setup
-
-Real cryptographic OTP verification protects:
-1. **Flavour Lab Submissions** (`/flavours`)
-2. **Contact & Inquiries** (`/faq`)
-
-### Flow & Security:
-- 6-digit numeric codes generated with `crypto.randomInt`.
-- Hashed with HMAC-SHA256 and salted.
-- 5-minute strict expiration.
-- 60-second resend cooldown timer.
-- Rate-limited to max 3 incorrect attempts.
-- Disposable and temporary email domains automatically rejected.
-- Single-use cryptographic verification token validated before form save.
-
-### Email Delivery Provider (Resend):
-1. Sign up for free at [resend.com](https://resend.com).
-2. Generate an API key.
-3. Configure environment variables in your deployment host:
-   - `RESEND_API_KEY`: e.g. `re_abc123...`
-   - `FROM_EMAIL`: e.g. `HEAVENLY-RUN <onboarding@resend.dev>` (for testing) or your verified domain like `verify@heavenlyrunenergy.com`.
-4. If `RESEND_API_KEY` is not set, the API returns a clear offline status error message informing the user to configure credentials (no fake simulation).
-
----
-
-## 4. Netlify Deployment Instructions
-
-The repository is pre-configured with `netlify.toml` and serverless functions in `netlify/functions/`:
-
-1. **Connect Repository to Netlify**:
-   - Push your project repository to GitHub / GitLab.
-   - In Netlify dashboard: **Add new site** > **Import an existing project**.
-
-2. **Build Settings** (detected automatically via `netlify.toml`):
-   - **Build Command**: `npm run build`
-   - **Publish Directory**: `dist`
-   - **Functions Directory**: `netlify/functions`
-
-3. **Set Environment Variables in Netlify**:
-   - Go to **Site Configuration** > **Environment Variables**.
-   - Add:
-     - `RESEND_API_KEY`: Your Resend API key.
-     - `FROM_EMAIL`: `HEAVENLY-RUN <onboarding@resend.dev>` (or your verified domain).
-     - `APP_URL`: Your Netlify site URL (e.g., `https://heavenly-run-energy.netlify.app`).
-
-4. **Verify Function Endpoints**:
-   - `/api/otp/send` -> redirected to `/.netlify/functions/send-otp`
-   - `/api/otp/verify` -> redirected to `/.netlify/functions/verify-otp`
-   - `/api/forms/submit` -> redirected to `/.netlify/functions/submit-form`
-
----
-
-## 5. Express / Cloud Run / Node Deployment
-
-For self-hosted or Docker/Cloud Run environments:
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Build client SPA
-npm run build
-
-# 3. Start full-stack server
-node --loader tsx server.ts
-# or
-npm run preview
+npm install -g firebase-tools
+firebase login
+firebase use gen-lang-client-0192116749
+firebase deploy --only firestore:rules
 ```
 
----
+The `firebase.json` file targets the named Firestore database. After deployment, use the Firebase Rules Playground or Emulator to verify:
 
-## 6. Pre-Launch Verification Completed
+- unauthenticated reads of `subscribers`, `flavourSubmissions`, and `contactInquiries` are denied;
+- unauthenticated creates are allowed only for valid, correctly shaped form documents;
+- a verified sign-in from the configured founder account can read the collections;
+- other signed-in accounts cannot read private submissions.
 
-- [x] Instagram handle `@heavenly_run.energy` integrated across all four pages, footer, and navigation.
-- [x] Google Auth completely removed; all public pages freely accessible.
-- [x] Real 6-digit OTP verification implemented for Flavour Lab and FAQ contact form.
-- [x] Founder login for Ankush Banerjee (`ankushbanerjeecool777@gmail.com`) with `Ankush@123` verified.
-- [x] Cinematic loading screen with celestial orbits, nebula pulse, and reduced-motion handling verified.
-- [x] Recharts sign-up analytics in `AdminFirst50Page.tsx` active.
-- [x] Netlify functions & `netlify.toml` configured for production deploy.
+Do not assume that a successful website build deploys Firestore rules. They are separate operations.
+
+## 3. Configure Authentication
+
+In Firebase Console → Authentication → Sign-in method, enable Google. Add the exact test/deployment hostnames under Authentication → Settings → Authorized domains. Verify the founder Google account's email. Do not use an email/password credential hardcoded in frontend code.
+
+## 4. Configure App Check before public traffic
+
+In Firebase Console → App Check, register the web app with reCAPTCHA Enterprise (or the supported provider selected in the console). Add the exact deployed domains and complete the provider verification. Integrate the returned site key in the client app, test in monitoring mode, then enable enforcement for Firestore only after legitimate requests are verified. Do not turn on enforcement before the client is configured or all public form writes may fail.
+
+## 5. Abuse protection and first-50 claims
+
+The browser must not assign a confirmed first-50 place. This build intentionally treats registrations as expressions of interest only. To run a real limited offer, implement a trusted Cloud Function using a Firestore transaction and server-side eligibility checks, add App Check enforcement and rate limiting, and publish clear terms/eligibility. Cloud Functions deployment may require enabling billing (Blaze) and must be reviewed by the project owner.
+
+## 6. Build and test locally
+
+```bash
+npm install
+npm run lint
+npm run build
+npm run dev
+```
+
+Test all routes, refresh/deep links, the 3D viewer on mobile and desktop, Google sign-in, form success/failure states, and the admin route with both founder and non-founder accounts. Check browser console and Firebase logs.
+
+## 7. Private repository hygiene
+
+- Keep the GitHub repository private while this is a temporary prototype.
+- Firebase web API keys are public client identifiers; do not mistake them for server secrets. Protect data with rules, App Check, authentication, and API restrictions.
+- Never commit service-account keys, `.env` files containing secrets, OAuth client secrets, or private access tokens.
+- Delete test submissions before inviting testers if they contain personal information.
+
+## Current honest status
+
+- Firestore rules are prepared in this repository, not deployed.
+- App Check is not configured because the project has no site key in its current config.
+- There is no server-side first-50 allocation or server-side rate limiter in this client-only build.
+- Build verification must be completed on a machine with dependencies installed; package installation timed out in the current environment.

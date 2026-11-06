@@ -1,58 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Admin verified as Ankush Banerjee
     function isAdmin() {
-      return (isSignedIn() && request.auth.token.email == 'ankushbanerjeecool777@gmail.com') ||
-             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return request.auth != null
+        && request.auth.token.email == 'ankushbanerjeecool777@gmail.com'
+        && request.auth.token.email_verified == true;
     }
 
-    function incoming() {
-      return request.resource.data;
+    function validEmail(value) {
+      return value is string
+        && value.size() >= 5
+        && value.size() <= 120
+        && value.matches('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$');
     }
 
-    function isValidSubscriber(data) {
-      return data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
-             data.email is string && data.email.size() <= 120 &&
-             data.wantsLimitedCan is bool;
-    }
-
-    // Subscribers collection (Exclusive first 50 contest entries)
     match /subscribers/{subscriberId} {
-      allow create: if isValidSubscriber(incoming());
-      // Admin (Ankush) can read subscribers and view first 50 entries
-      allow read: if true;
-      allow update, delete: if true;
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'wantsLimitedCan', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'wantsLimitedCan', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 100
+        && validEmail(request.resource.data.email)
+        && request.resource.data.wantsLimitedCan is bool
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
     }
 
-    // Flavour Lab Submissions
     match /flavourSubmissions/{submissionId} {
-      allow create: if incoming().flavourName is string && incoming().flavourName.size() <= 80;
-      allow read: if true;
-      allow update, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly([
+          'name', 'flavourName', 'category', 'description', 'suggestedColors', 'additionalIdeas', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll(['flavourName', 'category', 'description', 'suggestedColors', 'createdAt'])
+        && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 100))
+        && request.resource.data.flavourName is string
+        && request.resource.data.flavourName.size() >= 1
+        && request.resource.data.flavourName.size() <= 80
+        && request.resource.data.category is string
+        && request.resource.data.category.size() >= 1
+        && request.resource.data.category.size() <= 40
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 1000
+        && request.resource.data.suggestedColors is string
+        && request.resource.data.suggestedColors.size() <= 200
+        && (!('additionalIdeas' in request.resource.data) || (request.resource.data.additionalIdeas is string && request.resource.data.additionalIdeas.size() <= 1000))
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
     }
 
-    // Contact Inquiries
     match /contactInquiries/{inquiryId} {
-      allow create: if incoming().name is string && incoming().email is string;
-      allow read: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'subject', 'message', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'subject', 'message', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100
+        && validEmail(request.resource.data.email)
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() >= 1
+        && request.resource.data.subject.size() <= 150
+        && request.resource.data.message is string
+        && request.resource.data.message.size() >= 10
+        && request.resource.data.message.size() <= 3000
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
     }
 
-    // Admin role mapping
-    match /admins/{userId} {
-      allow read: if isSignedIn();
-      allow write: if false;
-    }
-
-    // Default deny catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /admins/{userId} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
   }
 }

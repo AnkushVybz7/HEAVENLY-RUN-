@@ -12,12 +12,7 @@ import {
   AlertCircle,
   ShieldCheck,
   Search,
-  Lock,
 } from 'lucide-react';
-import { EmailOtpVerifier } from '../components/EmailOtpVerifier';
-import { InstagramSection } from '../components/InstagramSection';
-import { submitVerifiedForm } from '../services/otpClient';
-import { MotionAccessibilityCard } from '../components/MotionAccessibilityCard';
 
 export const FaqPage: React.FC = () => {
   const [openId, setOpenId] = useState<number | null>(1); // Open first question by default
@@ -30,21 +25,9 @@ export const FaqPage: React.FC = () => {
   const [contactSubject, setContactSubject] = useState('');
   const [contactMessage, setContactMessage] = useState('');
 
-  // 6-Digit Email OTP Verification State
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verificationToken, setVerificationToken] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const [recentInquiries, setRecentInquiries] = useState<ContactSubmission[]>(() => {
-    try {
-      const stored = localStorage.getItem('heavenly_run_contact_inquiries');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [recentInquiries, setRecentInquiries] = useState<ContactSubmission[]>([]);
 
   const toggleAccordion = (id: number) => {
     setOpenId(openId === id ? null : id);
@@ -62,12 +45,6 @@ export const FaqPage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
-
-    // Identity verification check
-    if (!isEmailVerified || !verificationToken) {
-      setFormError('Please verify your email address with the 6-digit verification code before submitting your inquiry.');
-      return;
-    }
 
     // Validation
     if (!contactName.trim()) {
@@ -87,59 +64,34 @@ export const FaqPage: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
-
     const newInquiry: ContactSubmission = {
       id: 'msg-' + Date.now(),
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       name: contactName.trim(),
-      email: contactEmail.trim().toLowerCase(),
+      email: contactEmail.trim(),
       subject: contactSubject.trim(),
       message: contactMessage.trim(),
     };
 
     try {
-      // Validate single-use verification token with backend
-      const verifyRes = await submitVerifiedForm({
-        email: contactEmail.trim().toLowerCase(),
-        verificationToken,
-        purpose: 'contact-inquiry',
-        formData: newInquiry,
-      });
-
-      if (!verifyRes.success) {
-        setFormError(verifyRes.error || 'Verification expired or invalid. Please verify email again.');
-        setIsEmailVerified(false);
-        setVerificationToken('');
-        setIsSubmitting(false);
-        return;
-      }
-
-      const updated = [newInquiry, ...recentInquiries];
-      setRecentInquiries(updated);
-      localStorage.setItem('heavenly_run_contact_inquiries', JSON.stringify(updated));
-
-      // Persist to Firebase Firestore
+      // Persist to Firebase before showing success; do not save contact details in localStorage.
       await addContactInquiryToFirestore({
         name: newInquiry.name,
         email: newInquiry.email,
         subject: newInquiry.subject,
         message: newInquiry.message,
       });
+      setRecentInquiries((previous) => [newInquiry, ...previous]);
 
       // Reset Form
       setContactName('');
       setContactEmail('');
       setContactSubject('');
       setContactMessage('');
-      setIsEmailVerified(false);
-      setVerificationToken('');
 
       setFormSuccess('THANK YOU. YOUR INQUIRY HAS BEEN LOGGED IN THE HEAVENLY-RUN INBOX.');
     } catch {
-      setFormError('Submission failed due to local storage limitation. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+      setFormError('Submission failed. Please check your connection and try again.');
     }
   };
 
@@ -208,9 +160,6 @@ export const FaqPage: React.FC = () => {
             ))}
           </div>
         </div>
-
-        {/* Global Reduced Motion & Device Display Telemetry Controller */}
-        <MotionAccessibilityCard />
 
         {/* 10 ACCORDION FAQ ITEMS */}
         <div className="space-y-3">
@@ -354,53 +303,19 @@ export const FaqPage: React.FC = () => {
                 />
               </div>
 
-              {/* 6-DIGIT EMAIL OTP VERIFICATION SECTION */}
-              <div className="pt-2">
-                <EmailOtpVerifier
-                  email={contactEmail}
-                  onEmailChange={setContactEmail}
-                  purpose="contact-inquiry"
-                  isVerified={isEmailVerified}
-                  onVerified={(verifiedEmail, token) => {
-                    setContactEmail(verifiedEmail);
-                    setIsEmailVerified(true);
-                    setVerificationToken(token);
-                    setFormError(null);
-                  }}
-                  disabled={isSubmitting}
-                />
-              </div>
-
               <div className="text-[11px] font-tech text-white/40 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
-                  Prototype submission mode active. Messages are logged securely in local storage and acknowledged truthfully.
+                  Prototype backend: messages are submitted to the configured Firebase project. Do not include sensitive personal information.
                 </span>
               </div>
 
-              {/* Submit Button (Gated by Email Verification) */}
               <button
                 type="submit"
-                disabled={!isEmailVerified || isSubmitting}
-                className={`w-full py-4 rounded-xl font-tech font-bold text-sm tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl ${
-                  isEmailVerified && !isSubmitting
-                    ? 'text-black bg-gradient-to-r from-white via-[#C7CDD5] to-[#A8D8FF] hover:brightness-110 active:scale-98 cursor-pointer shadow-blue-500/20'
-                    : 'bg-white/10 text-white/40 border border-white/10 cursor-not-allowed opacity-60'
-                }`}
+                className="w-full py-4 rounded-xl font-tech font-bold text-sm tracking-widest text-black bg-gradient-to-r from-white via-[#C7CDD5] to-[#A8D8FF] hover:brightness-110 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xl shadow-blue-500/20"
               >
-                {isSubmitting ? (
-                  <span>TRANSMITTING MESSAGE...</span>
-                ) : !isEmailVerified ? (
-                  <>
-                    <Lock className="w-4 h-4 text-white/40" />
-                    <span>VERIFY EMAIL WITH 6-DIGIT CODE TO SUBMIT</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>TRANSMIT MESSAGE (VERIFIED)</span>
-                  </>
-                )}
+                <Send className="w-4 h-4" />
+                <span>TRANSMIT MESSAGE</span>
               </button>
             </form>
 
@@ -430,9 +345,6 @@ export const FaqPage: React.FC = () => {
             )}
           </div>
         </section>
-
-        {/* Dedicated Promotional Instagram Section */}
-        <InstagramSection />
       </div>
     </div>
   );

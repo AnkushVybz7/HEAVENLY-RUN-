@@ -48,14 +48,14 @@ export const SignUpTrendChart: React.FC<SignUpTrendChartProps> = ({ subscribers 
 
     // Sort ascending by creation time
     const sorted = [...subscribers].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      (a, b) => (a.createdAt?.toDate?.().getTime?.() ?? 0) - (b.createdAt?.toDate?.().getTime?.() ?? 0)
     );
 
     // Group by day or hour depending on time span
     const groupedMap = new Map<string, { signups: number; eligible: number; timestamp: number }>();
 
     sorted.forEach((sub) => {
-      const dateObj = new Date(sub.createdAt);
+      const dateObj = sub.createdAt?.toDate ? sub.createdAt.toDate() : new Date(0);
       // Format as Month Day or Month Day Hour
       const dateKey = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
@@ -71,7 +71,7 @@ export const SignUpTrendChart: React.FC<SignUpTrendChartProps> = ({ subscribers 
     if (groupedMap.size <= 1) {
       const hourlyMap = new Map<string, { signups: number; eligible: number; timestamp: number }>();
       sorted.forEach((sub) => {
-        const dateObj = new Date(sub.createdAt);
+        const dateObj = sub.createdAt?.toDate ? sub.createdAt.toDate() : new Date(0);
         const hour = dateObj.getHours();
         const bucketHour = Math.floor(hour / 2) * 2;
         const timeKey = `${bucketHour}:00`;

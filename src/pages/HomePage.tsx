@@ -3,7 +3,6 @@ import { PageRoute } from '../types';
 import { CelestialHeroCanvas } from '../components/3d/CelestialHeroCanvas';
 import { PRODUCTS, BRAND_TAGLINE, BRAND_NAME, LAUNCH_DATE_STATUS } from '../data/products';
 import { Sparkles, ArrowRight, ShieldCheck, Zap, Disc3, Eye, ZoomIn, X } from 'lucide-react';
-import { InstagramSection } from '../components/InstagramSection';
 
 interface HomePageProps {
   onNavigate: (route: PageRoute) => void;
@@ -322,9 +321,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </section>
-
-      {/* 5. DEDICATED PROMOTIONAL INSTAGRAM SECTION */}
-      <InstagramSection />
 
       {/* Lightbox Modal for Full Resolution Ad Poster */}
       {selectedAdModal && (

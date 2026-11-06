@@ -17,11 +17,7 @@ import {
   Image as ImageIcon,
   Shield,
   Layers3,
-  Lock,
 } from 'lucide-react';
-import { EmailOtpVerifier } from '../components/EmailOtpVerifier';
-import { InstagramSection } from '../components/InstagramSection';
-import { submitVerifiedForm } from '../services/otpClient';
 
 export const FlavoursPage: React.FC = () => {
   const [selectedFlavour, setSelectedFlavour] = useState<FlavourId>('devil-rush');
@@ -29,60 +25,22 @@ export const FlavoursPage: React.FC = () => {
 
   // Community Flavour Lab State
   const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
   const [formFlavourName, setFormFlavourName] = useState('');
   const [formCategory, setFormCategory] = useState<FlavourLabSubmission['category']>('sweet and sour');
   const [formDescription, setFormDescription] = useState('');
   const [formColors, setFormColors] = useState('');
   const [formIdeas, setFormIdeas] = useState('');
 
-  // 6-Digit Email OTP Verification State
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verificationToken, setVerificationToken] = useState('');
-
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissions, setSubmissions] = useState<FlavourLabSubmission[]>([]);
 
-  // Load prototype submissions from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('heavenly_run_flavour_submissions');
-      if (stored) {
-        setSubmissions(JSON.parse(stored));
-      } else {
-        // Sample community starting concept
-        const initialSamples: FlavourLabSubmission[] = [
-          {
-            id: 'sample-1',
-            createdAt: '2026-10-28',
-            name: 'CyberKinetics',
-            flavourName: 'SOLAR FLARE',
-            category: 'citrus',
-            description: 'Yuzu and blood orange infusion with an effervescent mineral bite.',
-            suggestedColors: 'Neon Solar Orange & Gunmetal Grey',
-            additionalIdeas: 'Matte texture with glossy solar flare accents.',
-          },
-        ];
-        setSubmissions(initialSamples);
-        localStorage.setItem('heavenly_run_flavour_submissions', JSON.stringify(initialSamples));
-      }
-    } catch {
-      // Fallback for isolated contexts
-    }
-  }, []);
+  // Show only submissions made in this browser session; public submissions are private in Firestore.
 
   const handleFlavourFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
-
-    // Identity verification check
-    if (!isEmailVerified || !verificationToken) {
-      setFormError('Please verify your email with the 6-digit verification code before submitting to the Flavour Lab.');
-      return;
-    }
 
     // Validation
     if (!formFlavourName.trim()) {
@@ -98,8 +56,6 @@ export const FlavoursPage: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
-
     const newSubmission: FlavourLabSubmission = {
       id: 'sub-' + Date.now(),
       createdAt: new Date().toISOString().split('T')[0],
@@ -112,27 +68,7 @@ export const FlavoursPage: React.FC = () => {
     };
 
     try {
-      // Double verification on final submission
-      const verifyRes = await submitVerifiedForm({
-        email: formEmail.trim().toLowerCase(),
-        verificationToken,
-        purpose: 'flavour-lab',
-        formData: newSubmission,
-      });
-
-      if (!verifyRes.success) {
-        setFormError(verifyRes.error || 'Verification token expired or invalid. Please verify email again.');
-        setIsEmailVerified(false);
-        setVerificationToken('');
-        setIsSubmitting(false);
-        return;
-      }
-
-      const updated = [newSubmission, ...submissions];
-      setSubmissions(updated);
-      localStorage.setItem('heavenly_run_flavour_submissions', JSON.stringify(updated));
-
-      // Persist to Firebase Firestore
+      // Persist to Firebase before displaying a success state.
       await addFlavourSubmissionToFirestore({
         name: newSubmission.name,
         flavourName: newSubmission.flavourName,
@@ -141,6 +77,7 @@ export const FlavoursPage: React.FC = () => {
         suggestedColors: newSubmission.suggestedColors,
         additionalIdeas: newSubmission.additionalIdeas,
       });
+      setSubmissions((previous) => [newSubmission, ...previous]);
 
       // Reset form
       setFormFlavourName('');
@@ -148,16 +85,11 @@ export const FlavoursPage: React.FC = () => {
       setFormColors('');
       setFormIdeas('');
       setFormName('');
-      setFormEmail('');
-      setIsEmailVerified(false);
-      setVerificationToken('');
 
       // Exact prompt success message
       setFormSuccess('YOUR IDEA HAS ENTERED THE FLAVOUR LAB.');
     } catch {
       setFormError('Submission failed. Please check your network connection.');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -627,54 +559,21 @@ export const FlavoursPage: React.FC = () => {
                 />
               </div>
 
-              {/* 6-DIGIT EMAIL OTP VERIFICATION SECTION */}
-              <div className="pt-2">
-                <EmailOtpVerifier
-                  email={formEmail}
-                  onEmailChange={setFormEmail}
-                  purpose="flavour-lab"
-                  isVerified={isEmailVerified}
-                  onVerified={(verifiedEmail, token) => {
-                    setFormEmail(verifiedEmail);
-                    setIsEmailVerified(true);
-                    setVerificationToken(token);
-                    setFormError(null);
-                  }}
-                  disabled={isSubmitting}
-                />
-              </div>
-
               {/* Privacy Notice & Prototype storage disclaimer */}
               <div className="flex items-start gap-2 text-xs font-tech text-white/40">
                 <Shield className="w-4 h-4 shrink-0 mt-0.5 text-blue-400" />
                 <span>
-                  <strong>Privacy Notice & Prototype Storage:</strong> Ideas submitted are saved locally for prototype demonstration and design inspiration. Submissions are voluntary. We never store personal telemetry or share data with 3rd parties.
+                  <strong>Privacy Notice:</strong> Ideas are submitted to the configured Firebase project and can be reviewed by the authorised administrator. Avoid including sensitive personal information.
                 </span>
               </div>
 
-              {/* Submit Button (Gated by Email Verification) */}
+              {/* Submit Button */}
               <button
                 type="submit"
-                disabled={!isEmailVerified || isSubmitting}
-                className={`w-full py-4 rounded-xl font-tech font-bold text-sm tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl ${
-                  isEmailVerified && !isSubmitting
-                    ? 'text-black bg-gradient-to-r from-white via-blue-100 to-[#A8D8FF] hover:brightness-110 active:scale-98 cursor-pointer shadow-blue-500/20'
-                    : 'bg-white/10 text-white/40 border border-white/10 cursor-not-allowed opacity-60'
-                }`}
+                className="w-full py-4 rounded-xl font-tech font-bold text-sm tracking-widest text-black bg-gradient-to-r from-white via-blue-100 to-[#A8D8FF] hover:brightness-110 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xl shadow-blue-500/20"
               >
-                {isSubmitting ? (
-                  <span>TRANSMITTING VERIFIED IDEA...</span>
-                ) : !isEmailVerified ? (
-                  <>
-                    <Lock className="w-4 h-4 text-white/40" />
-                    <span>VERIFY EMAIL WITH 6-DIGIT CODE TO SUBMIT</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>SUBMIT TO FLAVOUR LAB (VERIFIED)</span>
-                  </>
-                )}
+                <Send className="w-4 h-4" />
+                <span>SUBMIT TO FLAVOUR LAB</span>
               </button>
             </form>
 
@@ -683,10 +582,10 @@ export const FlavoursPage: React.FC = () => {
               <div className="mt-12 pt-8 border-t border-white/10">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-display text-sm font-bold tracking-wider uppercase text-white/60">
-                    LAB RADAR: RECENT COMMUNITY PROPOSALS ({submissions.length})
+                    YOUR RECENT SESSION SUBMISSIONS ({submissions.length})
                   </h3>
                   <span className="text-[10px] font-tech text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-500/20">
-                    PROTOTYPE REPOSITORY
+                    THIS BROWSER SESSION
                   </span>
                 </div>
 
@@ -720,9 +619,6 @@ export const FlavoursPage: React.FC = () => {
             )}
           </div>
         </section>
-
-        {/* Dedicated Promotional Instagram Section */}
-        <InstagramSection />
       </div>
     </div>
   );

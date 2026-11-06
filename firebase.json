@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-heavenlyrunenerg-0fa87315-1930-4cc0-b455-05552541778d",
+      "rules": "firestore.rules"
+    }
+  ]
+}

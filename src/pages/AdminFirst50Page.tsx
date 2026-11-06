@@ -69,7 +69,7 @@ export const AdminFirst50Page: React.FC = () => {
         .concat(
           subscribers.map(
             (s, i) =>
-              `${i + 1},"${s.name}","${s.email}",${s.wantsLimitedCan ? 'YES' : 'NO'},"${s.createdAt}"`
+              `${i + 1},"${s.name}","${s.email}",${s.wantsLimitedCan ? 'YES' : 'NO'},"${s.createdAt?.toDate?.().toISOString?.() || ''}"`
           )
         )
         .join('\n');
@@ -226,15 +226,15 @@ export const AdminFirst50Page: React.FC = () => {
 
           <div className="bg-[#0c101a] border border-amber-500/30 rounded-2xl p-6">
             <span className="text-xs font-tech text-amber-300 uppercase tracking-widest block">
-              FIRST 50 CAN CANDIDATES
+              LIMITED-CAN INTEREST
             </span>
             <div className="text-3xl font-display font-black text-amber-400 mt-2">
               {first50Subscribers.length} / 50
             </div>
             <span className="text-xs font-tech text-white/60 mt-1 block">
               {50 - first50Subscribers.length > 0
-                ? `${50 - first50Subscribers.length} slots remaining on limited can`
-                : 'Limited can capacity fully claimed!'}
+                ? `${50 - first50Subscribers.length} places within the review target (not confirmed)`
+                : '50 or more expressions of interest received'}
             </span>
           </div>
 
@@ -246,7 +246,7 @@ export const AdminFirst50Page: React.FC = () => {
               READY FOR PROTOTYPE
             </div>
             <span className="text-xs font-tech text-white/60 mt-1 block">
-              300 ML Limited Run Edition
+              Proposed 300 ml concept — not confirmed
             </span>
           </div>
         </div>
@@ -260,7 +260,7 @@ export const AdminFirst50Page: React.FC = () => {
             <div className="flex items-center gap-3">
               <Trophy className="w-6 h-6 text-amber-400" />
               <h2 className="font-display font-bold text-xl sm:text-2xl text-white">
-                FIRST 50 NAMES ELIGIBLE FOR CAN PACKAGING
+                EARLIEST LIMITED-CAN INTEREST — REVIEW REQUIRED
               </h2>
             </div>
             <span className="text-xs font-tech text-white/50">
@@ -270,7 +270,7 @@ export const AdminFirst50Page: React.FC = () => {
 
           {first50Subscribers.length === 0 ? (
             <div className="p-12 text-center text-white/40 font-tech text-sm bg-black/40 rounded-2xl border border-white/5">
-              No entries logged yet. Visitors signing in through the updates modal will populate here in real-time.
+              No registrations are available yet. Entries shown here are expressions of interest, not confirmed winners.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -306,7 +306,7 @@ export const AdminFirst50Page: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-xs text-white/40">
-                        {new Date(sub.createdAt).toLocaleDateString()} {new Date(sub.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {sub.createdAt?.toDate ? sub.createdAt.toDate().toLocaleString() : 'Timestamp unavailable'}
                       </td>
                     </tr>
                   ))}

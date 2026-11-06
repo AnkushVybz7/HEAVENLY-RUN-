@@ -4,8 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { MotionConfig } from 'motion/react';
-import { MotionProvider, useMotionPreference } from './context/MotionContext';
 import { PageRoute } from './types';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -19,11 +17,11 @@ import { FlavoursPage } from './pages/FlavoursPage';
 import { MysteryPage } from './pages/MysteryPage';
 import { FaqPage } from './pages/FaqPage';
 import { AdminFirst50Page } from './pages/AdminFirst50Page';
-import { testConnection, logoutUser, onAuthChange } from './services/firebase';
+import { testConnection, logoutUser, auth } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { audioSynth } from './utils/audio';
 
-function AppContent() {
-  const { reducedMotion } = useMotionPreference();
+export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Check if visitor has entered full name and email
@@ -46,44 +44,23 @@ function AppContent() {
 
   const [currentRoute, setCurrentRoute] = useState<PageRoute>(getInitialRoute);
 
-  // Check existing session / credentials
+  // Firebase is the source of truth for signed-in identity. Never trust a
+  // browser-stored profile or admin flag for access decisions.
   useEffect(() => {
     testConnection();
-    try {
-      // Check session
-      const stored = localStorage.getItem('heavenly_run_user_auth');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.name && parsed.email) {
-          setCurrentUser({ name: parsed.name, email: parsed.email });
-          const adminCheck =
-            parsed.isAdmin === true ||
-            (parsed.email.toLowerCase() === 'ankushbanerjeecool777@gmail.com' && parsed.isAdmin);
-          setIsAdmin(adminCheck);
-          setShowSubscriberModal(false);
-          return;
-        }
-      }
-      // Public pages are accessible without mandatory registration
-      setShowSubscriberModal(false);
-    } catch {
-      setShowSubscriberModal(false);
-    }
   }, []);
 
-  // Listen to live Firebase Auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthChange((firebaseUser) => {
-      if (firebaseUser && firebaseUser.email) {
-        const cleanEmail = firebaseUser.email.toLowerCase();
-        const cleanName = firebaseUser.displayName || cleanEmail.split('@')[0];
-        const isFounder = cleanEmail === 'ankushbanerjeecool777@gmail.com';
-        setCurrentUser({ name: cleanName, email: cleanEmail });
-        setIsAdmin(isFounder);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => onAuthStateChanged(auth, (user) => {
+    const admin = user?.email?.toLowerCase() === 'ankushbanerjeecool777@gmail.com' && user.emailVerified;
+    setIsAdmin(Boolean(admin));
+    if (user) {
+      setCurrentUser({ name: user.displayName || 'Google User', email: user.email || '' });
+      setShowSubscriberModal(false);
+    } else {
+      setIsAdmin(false);
+      setCurrentUser(null);
+    }
+  }), []);
 
   // Sync with browser navigation (popstate & hashchange)
   useEffect(() => {
@@ -136,9 +113,13 @@ function AppContent() {
     setCurrentUser(userData);
     setIsAdmin(adminDetected);
 
-    // If user is Ankush Banerjee, automatically unlock and route to the 5th page!
+    // Do not call handleNavigate here: React state updates are asynchronous,
+    // so its admin guard would still see the previous value.
     if (adminDetected) {
-      handleNavigate('/admin-first-50');
+      setCurrentRoute('/admin-first-50');
+      window.location.hash = '/admin-first-50';
+      try { window.history.pushState({}, '', '/admin-first-50'); } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -147,7 +128,6 @@ function AppContent() {
     try {
       await logoutUser();
     } catch {}
-    localStorage.removeItem('heavenly_run_user_auth');
     setCurrentUser(null);
     setIsAdmin(false);
     handleNavigate('/');
@@ -155,68 +135,57 @@ function AppContent() {
   };
 
   return (
-    <MotionConfig reducedMotion={reducedMotion ? 'always' : 'never'}>
-      <div className="min-h-screen bg-[#090B12] text-white flex flex-col selection:bg-blue-600/30 relative">
-        {/* Sleek Futuristic Custom Desktop Cursor */}
-        <CustomCursor />
+    <div className="min-h-screen bg-[#090B12] text-white flex flex-col selection:bg-blue-600/30 relative">
+      {/* Sleek Futuristic Custom Desktop Cursor */}
+      <CustomCursor />
 
-        {/* Global Dynamic Particle Background (Subtle on FAQ/Admin, Pronounced on Home & Mystery) */}
-        <InteractiveParticleField currentRoute={currentRoute} />
+      {/* Global Dynamic Particle Background (Subtle on FAQ/Admin, Pronounced on Home & Mystery) */}
+      <InteractiveParticleField currentRoute={currentRoute} />
 
-        {/* Initial Loading Screen */}
-        {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
+      {/* Initial Loading Screen */}
+      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
 
-        {/* Sign-in for Latest Updates & First 50 Can Contest Popup (Non-blocking with Close option) */}
-        <SubscriberModal
-          isOpen={showSubscriberModal}
-          onSuccess={handleSubscriberSuccess}
-          onClose={() => setShowSubscriberModal(false)}
-        />
+      {/* Mandatory Sign-in for Latest Updates & First 50 Can Contest Popup */}
+      <SubscriberModal
+        isOpen={showSubscriberModal}
+        onSuccess={handleSubscriberSuccess}
+      />
 
-        {/* Floating Navbar with prominent user status and LOG OUT button */}
-        <Navbar
-          currentRoute={currentRoute}
-          onNavigate={handleNavigate}
-          isAdmin={isAdmin}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          onOpenLogin={() => setShowSubscriberModal(true)}
-        />
+      {/* Floating Navbar with prominent user status and LOG OUT button */}
+      <Navbar
+        currentRoute={currentRoute}
+        onNavigate={handleNavigate}
+        isAdmin={isAdmin}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenLogin={() => setShowSubscriberModal(true)}
+      />
 
-        {/* Distinct Page Route Renderer */}
-        <main className="flex-grow">
-          {currentRoute === '/' && <HomePage onNavigate={handleNavigate} />}
-          {currentRoute === '/flavours' && <FlavoursPage />}
-          {currentRoute === '/mystery' && <MysteryPage />}
-          {currentRoute === '/faq' && <FaqPage />}
-          {currentRoute === '/admin-first-50' && <AdminFirst50Page />}
-        </main>
+      {/* Distinct Page Route Renderer */}
+      <main className="flex-grow">
+        {currentRoute === '/' && <HomePage onNavigate={handleNavigate} />}
+        {currentRoute === '/flavours' && <FlavoursPage />}
+        {currentRoute === '/mystery' && <MysteryPage />}
+        {currentRoute === '/faq' && <FaqPage />}
+        {currentRoute === '/admin-first-50' && (isAdmin ? <AdminFirst50Page /> : <div className="min-h-[50vh] flex items-center justify-center text-white/70">Sign in with the authorised founder Google account to access this page.</div>)}
+      </main>
 
-        {/* Always-Visible Floating Multi-Page Switcher & 1-Click Logout Dock */}
-        <MultiPageDock
-          currentRoute={currentRoute}
-          onNavigate={handleNavigate}
-          isAdmin={isAdmin}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          onOpenLogin={() => setShowSubscriberModal(true)}
-        />
+      {/* Always-Visible Floating Multi-Page Switcher & 1-Click Logout Dock */}
+      <MultiPageDock
+        currentRoute={currentRoute}
+        onNavigate={handleNavigate}
+        isAdmin={isAdmin}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenLogin={() => setShowSubscriberModal(true)}
+      />
 
-        {/* Global Footer */}
-        <Footer
-          onNavigate={handleNavigate}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
-      </div>
-    </MotionConfig>
-  );
-}
-
-export default function App() {
-  return (
-    <MotionProvider>
-      <AppContent />
-    </MotionProvider>
+      {/* Global Footer */}
+      <Footer
+        onNavigate={handleNavigate}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
+    </div>
   );
 }
